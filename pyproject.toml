@@ -1,0 +1,38 @@
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry]
+name = "conv_ai_ecommerce"
+version = "0.1.0"
+description = "Generative AI Principles Midterm Project Summer 2025"
+authors = [
+    "Gretchen Forbush <forbug@uchicago.edu>",
+    "Fletcher Lin <dinflin@outlook.com>",
+    "Brianna Ngo <bngo@chicagobooth.edu>",
+    "Vanessa Atwood <vanessaleal@uchicago.edu>"
+]
+readme = "README.md"
+packages = [
+    {include = "conv_ai_ecommerce", from = "src"}
+]
+
+[tool.poetry.dependencies]
+python = '~3.13'
+beautifulsoup4 = "^4.13.4"
+langchain-community = "^0.3.26"
+langgraph = "^0.6.3"
+langchain-ollama = "^0.3.3"
+streamlit = "^1.46.1"
+kagglehub = "^0.3.12"
+ipykernel = "^6.30.1"
+transformers = "^4.55.0"
+pillow = "^11.3.0"
+torch = "^2.7.1"
+chromadb = "^0.5.3"
+openai-clip = "^1.0.1"
+torchvision = "^0.22.1"
+aiohttp = "^3.9.5"
+watchdog = "^6.0.0"
+requests = "^2.31.0"
+
