@@ -6,10 +6,10 @@ import chromadb
 import pandas as pd
 import torch
 import clip
-from conv_ai_ecommerce.data_ingestion.chroma_loader import load_chroma_index, load_dual_collections
-from conv_ai_ecommerce.data_ingestion.clip_embeddings import compute_clip_embedding, get_clip_model
-from conv_ai_ecommerce.vlrag_framework.graph import create_enhanced_workflow
-from conv_ai_ecommerce.vlrag_framework.prompts import create_response_chain, base_system_prompt
+from conv_ai_ecommerce.utils.load_utils import get_text_only_model, generate_image_embedding_from_file, generate_text_clip_embeddings, generate_text_only_embeddings, get_clip_model, generate_image_embeddings
+from conv_ai_ecommerce.utils.chroma_utils import load_all_collections, load_chroma_index
+from conv_ai_ecommerce.utils.response_utils import retrieve_relevant_products, generate_response
+
 
 
 st.set_page_config(page_title="Amazon Product Chatbot", page_icon="🛒", layout="centered")
@@ -41,50 +41,61 @@ st.write("Chat interface for product recommendations and Q&A.")
 def load_data():
     # Try to load both collections
     try:
-        collections = load_dual_collections("data/chroma_index")
-        multimodal_collection = collections['multimodal']['collection']
-        multimodal_metadata = collections['multimodal']['metadata']
-        text_only_collection = collections['text_only']['collection']
-        text_only_metadata = collections['text_only']['metadata']
+        collections = load_all_collections("data/chroma_index")
+        multimodal_collection = collections['multimodal']
+        text_only_collection = collections['text_only']
+        image_only_collection = collections['image_only']
         
-        if text_only_collection is not None:
-            st.info("💡 Text-only collection loaded - will use optimized text search when no image is provided")
     except Exception as e:
         # Fallback to regular loading
-        st.warning(f"Could not load dual collections, using multimodal only: {e}")
-        multimodal_collection, multimodal_metadata = load_chroma_index("data/chroma_index")
-        text_only_collection, text_only_metadata = None, None
+        st.warning(f"Could not load all collections, using multimodal only: {e}")
+        multimodal_collection = load_chroma_index("data/chroma_index")
+        text_only_collection = None
+        image_only_collection = None
     
-    clip_model, _ = clip.load("ViT-B/32", device="cpu")
-    workflow = create_enhanced_workflow()
-    response_chain = create_response_chain()
+    clip_model, clip_processor = get_clip_model()
+    text_model = get_text_only_model()
     
-    return (multimodal_collection, multimodal_metadata, 
-            text_only_collection, text_only_metadata, 
-            clip_model, workflow, response_chain)
+    return (multimodal_collection,
+            text_only_collection, 
+            image_only_collection, 
+            clip_model, clip_processor, text_model)
 
-(collection, meta_df, text_only_collection, text_only_metadata, 
- clip_model, workflow, response_chain) = load_data()
+(collection, text_only_collection, image_only_collection, 
+ clip_model, clip_processor, text_model) = load_data()
 
 if "chat_history" not in st.session_state:
     st.session_state["chat_history"] = []
 
+
+
 user_input = st.text_input("Ask about a product or get recommendations:", key="user_input")
 image_file = st.file_uploader("Upload an image (optional)", type=["jpg", "jpeg", "png"])
 
-if st.button("Send"):
-    if user_input.strip():
-        # Clear chat history for fresh start
-        st.session_state["chat_history"] = []
-        
+# Add Send button, and only show 'Send as a Follow-Up' if chat history exists
+if st.session_state["chat_history"]:
+    col1, col2 = st.columns([1, 1])
+    send_clicked = col1.button("Send")
+    followup_clicked = col2.button("Send as a Follow-Up")
+else:
+    send_clicked = st.button("Send")
+    followup_clicked = False
+
+def handle_send(clear_history: bool):
+    if user_input.strip() or image_file:
+        if clear_history:
+            # Clear chat history for fresh start
+            st.session_state["chat_history"] = []
         # Add current query to history
         st.session_state["chat_history"].append({"role": "user", "content": user_input})
-        
-        # Embed user query
-        text_input = clip.tokenize([user_input], truncate=True)
-        with torch.no_grad():
-            query_emb = clip_model.encode_text(text_input).cpu().numpy()
-
+        if user_input.strip():
+            # Embed user query
+            if image_file:
+                query_emb = generate_text_clip_embeddings(user_input, clip_model=clip_model, clip_processor=clip_processor)
+            else:
+                query_emb = generate_text_only_embeddings(user_input, text_model=text_model)
+        else:
+            query_emb = None
         # Embed image if present
         if image_file:
             image = Image.open(image_file)
@@ -93,37 +104,26 @@ if st.button("Send"):
             temp_path = "temp_uploaded_image.png"
             image.save(temp_path)
             # Preprocess the image and compute the embedding
-            image_input = clip.load("ViT-B/32", device="cpu")[1](image).unsqueeze(0)
-            with torch.no_grad():
-                image_emb = clip_model.encode_image(image_input).cpu().numpy()
+            image_emb = generate_image_embedding_from_file(image, clip_model=clip_model, clip_preprocess=clip_processor)
             os.remove(temp_path)
         else:
-            image_emb = np.zeros_like(query_emb)
-
-        initial_state = {
-            "user_input": user_input,
-            "user_embedding": query_emb,
-            "image_embedding": image_emb,
-            "has_image": image_file is not None,  # Track if image was provided
-            "vector_index": collection,
-            "metadata_df": meta_df,
-            "text_only_collection": text_only_collection,  # Add text-only collection
-            "text_only_metadata": text_only_metadata,      # Add text-only metadata
-            "response_chain": response_chain,
-        }
-
-        response = workflow.invoke(initial_state)
-
-        assistant_content = response['response']
-        
-        st.session_state["chat_history"].append({"role": "assistant", "content": assistant_content})
-        
-        # Force page refresh by rerunning
+            image_emb = None
+        retrieved_items = retrieve_relevant_products(collection, text_only_collection, image_only_collection, query_emb, image_emb)
+        response = generate_response(user_input, retrieved_items)
+        print(response)
+        st.session_state["chat_history"].append({"role": "bot", "content": response})
         st.rerun()
 
-for msg in st.session_state["chat_history"]:
-    if msg["role"] == "user":
-        st.markdown(f"**You:** {msg['content']}")
-    else:
-        st.markdown(f"**Bot:** {msg['content']}")
+if send_clicked:
+    handle_send(clear_history=True)
+elif followup_clicked:
+    handle_send(clear_history=False)
+
+# Show chat history if it exists
+if st.session_state["chat_history"]:
+    for msg in st.session_state["chat_history"]:
+        if msg["role"] == "user" and msg['content']:
+            st.markdown(f"**You:** {msg['content']}")
+        else:
+            st.markdown(f"**Amazon Assistant:** {msg['content']}")
 

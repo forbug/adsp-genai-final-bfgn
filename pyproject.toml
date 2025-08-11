@@ -35,4 +35,5 @@ torchvision = "^0.22.1"
 aiohttp = "^3.9.5"
 watchdog = "^6.0.0"
 requests = "^2.31.0"
+sentence-transformers = "^5.1.0"
 

@@ -7,21 +7,21 @@ This allows us to have separate indices optimized for text-only vs multimodal qu
 
 import pandas as pd
 import torch
-import clip
 import chromadb
 import numpy as np
 import os
 import asyncio
 
+from conv_ai_ecommerce.utils.load_utils import get_text_only_model, generate_text_embeddings
+
+
+text_model = get_text_only_model()
+
 def create_text_only_collection(csv_path: str, chroma_index_folder: str, batch_size: int = 32):
     """Create a text-only ChromaDB collection."""
     
-    print("Loading CLIP model...")
-    clip_model, _ = clip.load("ViT-B/32", device="cpu")
-    
     print("Loading product data...")
     df = pd.read_csv(csv_path)
-    df['id'] = range(len(df))
     
     vectors = []
     meta = []
@@ -31,26 +31,20 @@ def create_text_only_collection(csv_path: str, chroma_index_folder: str, batch_s
     for i in range(0, len(df), batch_size):
         batch_df = df.iloc[i:i+batch_size]
         
-        # Batch embed text only
-        names = batch_df["Product Name"].astype(str).tolist()
-        descs = batch_df["About Product"].fillna("").astype(str).tolist()
-        
         # Create text combinations (same as multimodal version)
-        texts = [f"{name}. {desc}" if desc and desc != "nan" else name for name, desc in zip(names, descs)]
+        texts = batch_df['search_text'].to_list()
         
         # Embed text only
-        text_inputs = clip.tokenize(texts, truncate=True)
-        with torch.no_grad():
-            text_embs = clip_model.encode_text(text_inputs).cpu().numpy()
+        text_embs = generate_text_embeddings(texts, text_model)
         
         for j in range(len(batch_df)):
             # Store only text embeddings (512 dimensions instead of 1024)
             vectors.append(text_embs[j])
             meta.append({
-                "name": names[j], 
-                "description": descs[j], 
-                "image_url": batch_df.iloc[j].get("Image", ""), 
-                "uniq_id": batch_df.iloc[j]["Uniq Id"]
+                "name": batch_df.iloc[j]["name"], 
+                "image_url": batch_df.iloc[j].get("image_url", ""), 
+                "product_id": batch_df.iloc[j]["product_id"],
+                "search_text": batch_df.iloc[j].get("search_text", ""), 
             })
         
         if (i // batch_size + 1) % 10 == 0:
@@ -88,7 +82,7 @@ def create_text_only_collection(csv_path: str, chroma_index_folder: str, batch_s
     
     # Save metadata
     meta_df = pd.DataFrame(meta)
-    meta_df.to_csv(chroma_index_folder + "/text_only_metadata.csv", index=False)
+    meta_df.to_csv(chroma_index_folder + "/index_metadata.csv", index=False)
     
     print(f"Text-only collection created successfully!")
     print(f"   - {len(vectors_np)} products indexed")
@@ -99,6 +93,6 @@ def create_text_only_collection(csv_path: str, chroma_index_folder: str, batch_s
 
 if __name__ == "__main__":
     create_text_only_collection(
-        "data/amazon_product_data_2020.csv", 
+        "data/amazon_products_cleaned.csv", 
         "data/chroma_index_text_only/"
     )

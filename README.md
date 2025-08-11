@@ -1,43 +1,53 @@
+
 # ADSP 32027 Generative AI Principles SU2025 - Final Assignment
 
-## Getting Started
+## Quickstart: Running the UI
 
-To get a local copy up and running, follow these simple steps.
+Follow these steps to set up your environment, preprocess the data, create all necessary indexes, and launch the Streamlit UI:
 
-### Local Environment Configuration
+1. **Clone the repository and set up the Python environment:**
+   ```bash
+   git clone git@github.com:forbug/adsp-genai-final-bfgn.git
+   cd adsp-genai-final-bfgn
+   poetry config virtualenvs.in-project true
+   poetry env use 3.11.12
+   source .venv/bin/activate
+   poetry install
+   ```
 
-Below are the recommended operating-system-specific instructions for:
-* Installing & configuring git
-* Setting up Visual Studio Code
+2. **Environment Variables**
 
-**NOTE**: While it is not necessary that you use Visual Studio Code, it is recommended, as it contains useful extensions and add-ins that will assist with development, especially those related to Microsoft tools.
+   Copy `.env.example` to `.env` and fill in any required secrets or configuration values.
 
-#### Install Necessary Tools
+3. **Preprocess the product data:**
+   ```bash
+      python scripts/preprocess_product_data.py
+   ```
 
-**NOTE**: It is assumed that you have Python 3.x installed. If you need assistance with installing Python, please contact one of the administrators of this repository.
+4. **Create all Chroma indexes:**
+   - **Multimodal index:**
+     ```bash
+     python scripts/create_multimodal_index.py
+     ```
+   - **Text-only index:**
+     ```bash
+     python scripts/create_text_only_index.py
+     ```
+   - **Image-only index:**
+     ```bash
+     python scripts/create_image_only_index.py
+     ```
 
-1. Install [VSCode](https://code.visualstudio.com/download)
-2. Install [git](https://git-scm.com/downloads)
-   * If you have a Mac, git may already be installed on your system. To test this, run `git --version` in your terminal.
-   * If you are using a Windows 11 machine, you should now open a Git Bash terminal for the remaining steps.
-3. Install [poetry](https://python-poetry.org/docs/#installation)
-   * IMPORTANT: You may need to add your `~/.local/bin` folder to your path if you are on a Windows or Mac machine. For Mac, see [this article](https://medium.com/@B-Treftz/macos-adding-a-directory-to-your-path-fe7f19edd2f7).
-   * Run `poetry --version` to validate that the installation was successful.
-4. (required) Set up [Ollama](https://ollama.com/)
-    * Ollama allows you to run local open-source models locally. You can interact with it either through the UI or through your terminal once you have downloaded it from the link above. 
-    * Once you have the UI downloaded, you can download models (see the list of available models [here](https://ollama.com/search)) by running `ollama pull <model-name>` in the UI or in your terminal.
-    * Then, you can use a model's name in any Ollama-related function from langchain to use the model that you have downloaded.
+5. **Run the Streamlit UI:**
+   ```bash
+   streamlit run ui/app.py
+   ```
 
+You can now interact with the Amazon Product Chatbot in your browser.
 
-#### Configure VSCode
+---
 
-If you decide to use VSCode, these extensions will make your experience much easier.
-
-1. Enable `git` in the settings.
-   * Follow the instructions in [this YouTube video](https://youtu.be/3Tsaxxv9sls?si=VsSBTenx6jm_K_tY&t=153)
-2. (Windows ONLY) Configure `git bash` as your default terminal.
-   * Now that you have git/git bash installed, you should be able to open a git bash terminal in VSCode. Follow the instructions [here](https://csweb.wooster.edu/mionescu/cs232/guides/vs-code-default-terminal/#:~:text=Open%20Visual%20Studio%20Code,the%20menu%20that%20pops%20up.) to configure git bash as your default terminal.
-   * Mac users will likely prefer to use Terminal or another shell.
+## Troubleshooting
 
 #### Configure Git (Optional)
 
@@ -52,79 +62,4 @@ If you decide to use VSCode, these extensions will make your experience much eas
    ```bash
    git clone git@github.com:forbug/adsp-genai-final-bfgn.git
    ```
-
-#### Configure the Python Environment
-
-1. Create the environment from the existing poetry specs in the repository.
-   ```bash
-   poetry config virtualenvs.in-project true
-   poetry env use 3.11.12
-   source .venv/bin/activate
-   poetry install
-   ```
-   This will create and activate a virtual environment and install all dependencies.
-
-2. (Optional) Create a jupyter kernel from the environment to run notebooks.
-   In order to run notebooks, you will need to create a jupyter kernel by running
-   ```bash
-   poetry run python -m ipykernel install --user --name genai-final
-   ```
-   You may need to restart your visual studio code window to find the kernel in your notebook
-   once you run this command.
-
-**NOTE:** If you wish to use another environment manager (e.g., conda, pyenv), ensure you install all dependencies listed in [pyproject.toml](pyproject.toml).
-
-#### Environment Variables
-
-- Copy `.env.example` to `.env` and fill in any required secrets or configuration values.
-
-## Usage
-
-**NOTE**: All of these scripts must be run in the poetry environment. Once you run the steps above, you can activate the environment by calling
-`source .venv/bin/activate`
-
-### 1. Load the Data
-
-To load the data and create the Chroma vector database, run the following command in your terminal:
-
-```bash
-python scripts/preload_data.py
-```
-
-This will create a `data/chroma_index` directory containing the Chroma vector database and the metadata file.
-
-### 2. Create Text-Only Search Index (Optional)
-
-To enable optimized text-only search when no image is provided:
-
-```bash
-python scripts/create_text_only_index.py
-```
-
-This creates a separate 512-dimensional text-only index that:
-- Uses only text embeddings (no image padding)
-- Provides better semantic search for text-only queries
-- Automatically switches when no image is uploaded
-- Improves retrieval quality for text-based product searches
-
-### 3. Test Search Strategies
-
-Compare text-only vs multimodal search performance:
-
-```bash
-python test_text_only_search.py
-```
-
-### 4. Run the Graph Independently
-
-To test the graph independently without the UI, you can use the `notebooks/test_graph.ipynb` notebook. This notebook will allow you to run the graph and inspect the output.
-
-### 5. Run the UI
-
-To run the Streamlit UI, run the following command in your terminal:
-
-```bash
-streamlit run ui/app.py
-```
-
 
