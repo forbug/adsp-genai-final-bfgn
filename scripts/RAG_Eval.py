@@ -196,7 +196,7 @@ for chunk in tqdm(list(batched(products, BATCH))):
         rows.append({"id": str(p.get("id","")), "text": t, "embedding": e.embedding})
 
 df_embed = pd.DataFrame(rows)
-# Serialize vectors as JSON strings so downstream code can parse robustly
+# Serialize vectors as JSON strings so downstream code can parse ly
 df_embed["embedding"] = df_embed["embedding"].apply(lambda v: json.dumps(v))
 emb_csv.parent.mkdir(parents=True, exist_ok=True)
 df_embed.to_csv(emb_csv, index=False)
@@ -243,7 +243,7 @@ try:
 except Exception as e:
     print("field_size_limit warning:", e)
 
-# 2) Robust loader: try multiple parsers/configs until we get 'embedding' and 'text'
+# 2) Loader: try multiple parsers/configs until we get 'embedding' and 'text'
 attempts = [
     {"engine":"c", "dtype":str},
     {"engine":"python", "dtype":str, "on_bad_lines":"warn"},
@@ -358,7 +358,7 @@ print("Clean rows to index:", len(df))
 emb_csv = Path("data/processed/amazon_products_embed.csv")
 assert emb_csv.exists(), emb_csv
 
-# Load robustly
+# Load ly
 df = pd.read_csv(emb_csv, dtype=str, engine="python", on_bad_lines="warn")
 df.columns = [str(c).replace("\ufeff","").strip().lower() for c in df.columns]
 assert "text" in df.columns and "embedding" in df.columns, df.columns.tolist()
@@ -413,7 +413,7 @@ df = pd.read_csv(emb_csv, dtype=str, engine="python", on_bad_lines="warn")
 df.columns = [str(c).replace("\ufeff","").strip().lower() for c in df.columns]
 assert {"id","text","embedding"}.issubset(df.columns), df.columns.tolist()
 
-# Robust parse of embeddings
+#  parse of embeddings
 def parse_vec(s):
     try:
         return json.loads(s) if isinstance(s, str) else s
@@ -518,7 +518,7 @@ if id_col is None:
 
 print("Detected columns →", {"id": id_col, "text": text_col, "embedding": emb_col})
 
-# Robust vector parser
+#  vector parser
 def parse_vec_any(s):
     if s is None:
         return None
@@ -609,7 +609,7 @@ else:
         )
     print("Chroma count:", col.count())
 
-assert col.count() > 0, "Still 0 items after robust parse. Consider enabling Cell 5b (RUN_REEMBED=True)."
+assert col.count() > 0, "Still 0 items after  parse. Consider enabling Cell 5b (RUN_REEMBED=True)."
 
 print(" Ready — collection:", COLL, "| count:", col.count(), "| dir:", persist_dir)
 
